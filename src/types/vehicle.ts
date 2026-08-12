@@ -8,7 +8,7 @@ export interface Vehicle {
   latitude: number | null;
   longitude: number | null;
   speed: number | null;
-  lastUpdated?: string | null;
+  lastUpdated?: string;
 }
 
 export interface VehicleRequest {
