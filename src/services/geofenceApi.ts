@@ -1,49 +1,52 @@
 import api from "./api.ts";
 
-export type GeofenceCategory =
-    | "delivery_zone"
-    | "restricted_zone"
-    | "toll_zone"
-    | "customer_area";
-
 export interface Geofence {
-    id: number;
-    name: string;
-    description?: string;
-    coordinates: [number, number][];
-    category: GeofenceCategory;
-    status?: string;
-    createdAt?: string;
+  id: number;
+  name: string;
+  centerLatitude: number;
+  centerLongitude: number;
+  radiusMeters: number;
+  active: boolean;
+  createdAt?: string;
 }
 
-export interface CreateGeofenceRequest {
-    name: string;
-    description?: string;
-    coordinates: [number, number][];
-    category: GeofenceCategory;
+export interface GeofenceRequest {
+  name: string;
+  centerLatitude: number;
+  centerLongitude: number;
+  radiusMeters: number;
+  active: boolean;
 }
 
 export const getGeofences = async (): Promise<Geofence[]> => {
-    const response =
-        await api.get<Geofence[]>("/geofences");
+  const response = await api.get<Geofence[]>("/geofences");
 
-    return response.data;
+  return response.data;
 };
 
 export const createGeofence = async (
-    data: CreateGeofenceRequest
+  data: GeofenceRequest,
 ): Promise<Geofence> => {
-    const response =
-        await api.post<Geofence>("/geofences", data);
+  const response = await api.post<Geofence>("/geofences", data);
 
-    return response.data;
+  return response.data;
 };
 
-export const getGeofence = async (
-    id: number
-): Promise<Geofence> => {
-    const response =
-        await api.get<Geofence>(`/geofences/${id}`);
+export const getGeofence = async (id: number): Promise<Geofence> => {
+  const response = await api.get<Geofence>(`/geofences/${id}`);
 
-    return response.data;
+  return response.data;
+};
+
+export const updateGeofence = async (
+  id: number,
+  data: GeofenceRequest,
+): Promise<Geofence> => {
+  const response = await api.put<Geofence>(`/geofences/${id}`, data);
+
+  return response.data;
+};
+
+export const deleteGeofence = async (id: number): Promise<void> => {
+  await api.delete(`/geofences/${id}`);
 };
