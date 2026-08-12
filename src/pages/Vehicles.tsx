@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getDashboard } from "../services/dashboardApi";
+import { getVehicles } from "../services/vehicleApi";
 import type { Vehicle } from "../types/dashboard";
 
 const Vehicles = () => {
@@ -13,11 +13,15 @@ const Vehicles = () => {
                 setLoading(true);
                 setError(null);
 
-                const data = await getDashboard();
+                const data = await getVehicles();
 
-                setVehicles(data.vehicles);
+                setVehicles(data);
             } catch (err) {
-                console.error("Failed to load vehicles:", err);
+                console.error(
+                    "Failed to load vehicles:",
+                    err
+                );
+
                 setError("Failed to load vehicles");
             } finally {
                 setLoading(false);
@@ -29,13 +33,15 @@ const Vehicles = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-[#07111f] flex items-center justify-center">
+            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
                 <div className="text-center">
+
                     <div className="w-10 h-10 border-4 border-slate-700 border-t-cyan-400 rounded-full animate-spin mx-auto" />
 
                     <p className="text-slate-400 mt-4">
                         Loading vehicles...
                     </p>
+
                 </div>
             </div>
         );
@@ -43,101 +49,118 @@ const Vehicles = () => {
 
     if (error) {
         return (
-            <div className="min-h-screen bg-[#07111f] flex items-center justify-center px-6">
-                <div className="bg-[#0d1b2a] border border-red-500/20 rounded-2xl p-8 text-center">
-                    <div className="text-red-400 text-4xl mb-4">
+            <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
+                <div className="text-center">
+
+                    <div className="w-12 h-12 mx-auto rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-xl">
                         !
                     </div>
 
-                    <h2 className="text-xl font-semibold text-white">
+                    <h2 className="text-xl font-semibold text-white mt-4">
                         Unable to load vehicles
                     </h2>
 
-                    <p className="text-slate-400 mt-2">
+                    <p className="text-slate-500 mt-2">
                         {error}
                     </p>
+
+                    <button
+                        type="button"
+                        onClick={() => window.location.reload()}
+                        className="mt-6 px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-medium hover:bg-cyan-400 transition"
+                    >
+                        Try Again
+                    </button>
+
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-[#07111f] text-white">
+        <div className="min-h-[calc(100vh-4rem)] text-white">
 
-            {/* Header */}
-            <header className="border-b border-slate-800/80 bg-[#091624]">
-                <div className="max-w-7xl mx-auto px-6 py-5">
+            <main className="max-w-7xl mx-auto px-6 py-8">
 
-                    <p className="text-cyan-400 text-sm font-medium">
-                        FLEET
+                {/* Header */}
+                <div className="mb-8">
+
+                    <p className="text-cyan-400 text-sm font-medium mb-2">
+                        FLEET MANAGEMENT
                     </p>
 
-                    <h1 className="text-3xl font-bold mt-1">
+                    <h1 className="text-3xl md:text-4xl font-bold">
                         Vehicles
                     </h1>
 
                     <p className="text-slate-400 mt-2">
-                        Monitor all registered vehicles in your fleet.
+                        Monitor and manage your fleet vehicles.
                     </p>
 
                 </div>
-            </header>
-
-            <main className="max-w-7xl mx-auto px-6 py-8">
 
                 {/* Summary */}
-                <div className="bg-[#0d1b2a] border border-slate-800 rounded-2xl p-6 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
 
-                    <div className="flex items-center justify-between">
+                    <SummaryCard
+                        title="Total Vehicles"
+                        value={vehicles.length}
+                        icon="🚚"
+                    />
 
-                        <div>
-                            <p className="text-sm text-slate-500">
-                                Total Vehicles
-                            </p>
+                    <SummaryCard
+                        title="Active"
+                        value={
+                            vehicles.filter(
+                                (vehicle) =>
+                                    vehicle.status?.toLowerCase() ===
+                                    "active"
+                            ).length
+                        }
+                        icon="✓"
+                    />
 
-                            <p className="text-4xl font-bold text-cyan-400 mt-2">
-                                {vehicles.length}
-                            </p>
-                        </div>
-
-                        <div className="w-12 h-12 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl">
-                            🚚
-                        </div>
-
-                    </div>
+                    <SummaryCard
+                        title="With Location"
+                        value={
+                            vehicles.filter(
+                                (vehicle) =>
+                                    vehicle.latitude != null &&
+                                    vehicle.longitude != null
+                            ).length
+                        }
+                        icon="📍"
+                    />
 
                 </div>
 
-                {/* Vehicle Table */}
-                <div className="bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden">
+                {/* Vehicle table */}
+                <section className="bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden">
 
                     <div className="px-6 py-5 border-b border-slate-800">
-
                         <h2 className="text-lg font-semibold">
-                            Vehicle List
+                            Fleet Vehicles
                         </h2>
 
                         <p className="text-sm text-slate-500 mt-1">
-                            Current vehicle information
+                            {vehicles.length} vehicles registered
                         </p>
-
                     </div>
 
                     {vehicles.length === 0 ? (
 
                         <div className="px-6 py-16 text-center">
 
-                            <div className="w-16 h-16 mx-auto rounded-2xl bg-slate-800 flex items-center justify-center text-2xl">
+                            <div className="text-4xl">
                                 🚚
                             </div>
 
-                            <h3 className="text-lg font-medium text-slate-300 mt-5">
+                            <h3 className="text-slate-300 font-medium mt-4">
                                 No vehicles found
                             </h3>
 
-                            <p className="text-slate-500 text-sm mt-2 max-w-md mx-auto">
-                                There are currently no vehicles registered in
-                                CloudFleet.
+                            <p className="text-sm text-slate-500 mt-2">
+                                Registered vehicles will appear here.
                             </p>
 
                         </div>
@@ -146,11 +169,11 @@ const Vehicles = () => {
 
                         <div className="overflow-x-auto">
 
-                            <table className="w-full">
+                            <table className="w-full text-left">
 
                                 <thead className="bg-[#0a1725]">
 
-                                <tr className="text-left text-xs uppercase tracking-wider text-slate-500">
+                                <tr className="text-xs uppercase tracking-wider text-slate-500">
 
                                     <th className="px-6 py-4">
                                         ID
@@ -189,8 +212,11 @@ const Vehicles = () => {
                                             #{vehicle.id}
                                         </td>
 
-                                        <td className="px-6 py-4 font-medium">
-                                            {vehicle.vehicleNumber ?? "-"}
+                                        <td className="px-6 py-4">
+                                            <div className="font-medium text-slate-200">
+                                                {vehicle.vehicleNumber ??
+                                                    `Vehicle #${vehicle.id}`}
+                                            </div>
                                         </td>
 
                                         <td className="px-6 py-4">
@@ -219,27 +245,72 @@ const Vehicles = () => {
 
                     )}
 
-                </div>
+                </section>
 
             </main>
+
         </div>
     );
 };
+
+/* -------------------------------- */
+/* Summary Card */
+/* -------------------------------- */
+
+interface SummaryCardProps {
+    title: string;
+    value: number;
+    icon: string;
+}
+
+const SummaryCard = ({
+                         title,
+                         value,
+                         icon,
+                     }: SummaryCardProps) => {
+    return (
+        <div className="bg-[#0d1b2a] border border-slate-800 rounded-2xl p-6">
+
+            <div className="flex items-center justify-between">
+
+                <p className="text-sm text-slate-400">
+                    {title}
+                </p>
+
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center">
+                    {icon}
+                </div>
+
+            </div>
+
+            <p className="text-3xl font-bold text-cyan-400 mt-5">
+                {value}
+            </p>
+
+        </div>
+    );
+};
+
+/* -------------------------------- */
+/* Status Badge */
+/* -------------------------------- */
 
 interface StatusBadgeProps {
     status?: string;
 }
 
-const StatusBadge = ({ status }: StatusBadgeProps) => {
-
-    const active = status?.toLowerCase() === "active";
+const StatusBadge = ({
+                         status,
+                     }: StatusBadgeProps) => {
+    const active =
+        status?.toLowerCase() === "active";
 
     return (
         <span
             className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs border ${
                 active
-                    ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
-                    : "bg-slate-800 text-slate-400 border-slate-700"
+                    ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                    : "bg-slate-800 border-slate-700 text-slate-400"
             }`}
         >
             <span
