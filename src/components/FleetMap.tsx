@@ -1,47 +1,71 @@
-import { Circle, MapContainer, Marker, Popup, TileLayer } from "react-leaflet";
+import { useEffect, useState } from "react";
+
+import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
 
 import L from "leaflet";
 
-import type { Vehicle } from "../types/dashboard";
+import { getGeofences } from "../services/geofenceApi";
 
-import { getGeofences, type Geofence } from "../services/geofenceApi";
+import type { Geofence } from "../services/geofenceApi";
 
-import { useEffect, useState } from "react";
+import { useWebSocket } from "../hooks/useWebSocket";
+
+import type { WebSocketMessage } from "../types/websocket";
 
 import "leaflet/dist/leaflet.css";
 
 /* -------------------------------- */
-/* Map configuration */
+/* Leaflet marker fix */
 /* -------------------------------- */
 
-const DEFAULT_CENTER: [number, number] = [19.076, 72.8777];
+delete (
+  L.Icon.Default.prototype as L.Icon.Default & {
+    _getIconUrl?: string;
+  }
+)._getIconUrl;
 
-/* -------------------------------- */
-/* Vehicle marker */
-/* -------------------------------- */
-
-const vehicleIcon = new L.Icon({
-  iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
-
+L.Icon.Default.mergeOptions({
   iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
 
-  shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
+  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
 
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41],
+  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
+
+/* -------------------------------- */
+/* Vehicle type used by FleetMap */
+/* -------------------------------- */
+
+/*
+ * Dashboard vehicles do not currently contain
+ * all fields from the full Vehicle interface.
+ *
+ * Therefore FleetMap only requires the fields
+ * that it actually uses.
+ */
+interface FleetMapVehicle {
+  id: number;
+
+  vehicleNumber?: string;
+
+  status?: string;
+
+  latitude?: number | null;
+
+  longitude?: number | null;
+
+  type?: string;
+
+  speed?: number | null;
+}
 
 /* -------------------------------- */
 /* Props */
 /* -------------------------------- */
 
 interface FleetMapProps {
-  vehicles: Vehicle[];
+  vehicles: FleetMapVehicle[];
 }
 
 /* -------------------------------- */
@@ -51,286 +75,222 @@ interface FleetMapProps {
 const FleetMap = ({ vehicles }: FleetMapProps) => {
   const [geofences, setGeofences] = useState<Geofence[]>([]);
 
-  const [geofenceLoading, setGeofenceLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [geofenceError, setGeofenceError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   /* -------------------------------- */
   /* Load geofences */
   /* -------------------------------- */
 
+  const loadGeofences = async () => {
+    try {
+      setError(null);
+
+      const data = await getGeofences();
+
+      setGeofences(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Failed to load geofences:", err);
+
+      setError("Failed to load geofences.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadGeofences = async () => {
-      try {
-        setGeofenceLoading(true);
-        setGeofenceError(null);
-
-        const data = await getGeofences();
-
-        setGeofences(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error("Failed to load geofences:", error);
-
-        setGeofenceError("Unable to load geofences.");
-
-        setGeofences([]);
-      } finally {
-        setGeofenceLoading(false);
-      }
-    };
-
     loadGeofences();
   }, []);
 
   /* -------------------------------- */
-  /* Vehicles with coordinates */
+  /* WebSocket */
   /* -------------------------------- */
 
-  const vehiclesWithLocation = Array.isArray(vehicles)
-    ? vehicles.filter(
-        (vehicle) =>
-          vehicle.latitude !== null &&
-          vehicle.latitude !== undefined &&
-          vehicle.longitude !== null &&
-          vehicle.longitude !== undefined,
-      )
-    : [];
+  const handleWebSocketMessage = (message: WebSocketMessage) => {
+    if (message.type === "VEHICLE_LOCATION_UPDATED") {
+      console.log("Vehicle location updated:", message.data);
+    }
+
+    if (message.type === "VEHICLE_CREATED") {
+      console.log("Vehicle created:", message.data);
+    }
+
+    if (message.type === "VEHICLE_DELETED") {
+      console.log("Vehicle deleted:", message.data);
+    }
+  };
+
+  useWebSocket({
+    onMessage: handleWebSocketMessage,
+  });
+
+  /* -------------------------------- */
+  /* Vehicles with valid coordinates */
+  /* -------------------------------- */
+
+  const locatedVehicles = vehicles.filter(
+    (vehicle) =>
+      vehicle.latitude !== null &&
+      vehicle.latitude !== undefined &&
+      vehicle.longitude !== null &&
+      vehicle.longitude !== undefined,
+  );
+
+  /* -------------------------------- */
+  /* Loading */
+  /* -------------------------------- */
+
+  if (loading) {
+    return (
+      <div className="w-full min-h-[500px] rounded-2xl bg-[#0d1b2a] border border-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-9 h-9 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto" />
+
+          <p className="text-slate-400 mt-4">Loading fleet map...</p>
+        </div>
+      </div>
+    );
+  }
+
+  /* -------------------------------- */
+  /* Map */
+  /* -------------------------------- */
 
   return (
-    <section className="bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl shadow-black/10">
-      {/* -------------------------------- */}
-      {/* Header */}
-      {/* -------------------------------- */}
+    <div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-800">
+      {/* Error */}
 
-      <div className="px-6 py-5 border-b border-slate-800">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold text-white">Fleet Map</h2>
+      {error && (
+        <div className="absolute top-4 left-4 right-4 z-[1000] rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+          {error}
+        </div>
+      )}
 
-            <p className="text-sm text-slate-500 mt-1">
-              Vehicle locations and geofences
-            </p>
+      <MapContainer
+        center={[19.076, 72.8777]}
+        zoom={11}
+        scrollWheelZoom={true}
+        className="w-full h-full min-h-[500px]"
+      >
+        <TileLayer
+          attribution="&copy; OpenStreetMap contributors"
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
+
+        {/* ================================ */}
+        {/* GEOFENCES */}
+        {/* ================================ */}
+
+        {geofences.map((geofence) => {
+          if (
+            geofence.centerLatitude === undefined ||
+            geofence.centerLongitude === undefined ||
+            geofence.radiusMeters === undefined
+          ) {
+            return null;
+          }
+
+          return (
+            <Circle
+              key={geofence.id}
+              center={[geofence.centerLatitude, geofence.centerLongitude]}
+              radius={geofence.radiusMeters}
+              pathOptions={{
+                color: geofence.active ? "#06b6d4" : "#64748b",
+
+                fillColor: geofence.active ? "#06b6d4" : "#64748b",
+
+                fillOpacity: 0.12,
+
+                weight: 2,
+              }}
+            >
+              <Popup>
+                <div className="text-slate-900 min-w-[180px]">
+                  <h3 className="font-semibold text-base">{geofence.name}</h3>
+
+                  <div className="mt-2 text-sm space-y-1">
+                    <p>Radius: {geofence.radiusMeters} m</p>
+
+                    <p>Status: {geofence.active ? "Active" : "Inactive"}</p>
+
+                    <p>
+                      Center:
+                      <br />
+                      {geofence.centerLatitude}
+                      {" , "}
+                      {geofence.centerLongitude}
+                    </p>
+                  </div>
+                </div>
+              </Popup>
+            </Circle>
+          );
+        })}
+
+        {/* ================================ */}
+        {/* VEHICLES */}
+        {/* ================================ */}
+
+        {locatedVehicles.map((vehicle) => (
+          <Marker
+            key={vehicle.id}
+            position={[vehicle.latitude!, vehicle.longitude!]}
+          >
+            <Popup>
+              <div className="text-slate-900 min-w-[180px]">
+                <h3 className="font-semibold text-base">
+                  {vehicle.vehicleNumber ?? `Vehicle #${vehicle.id}`}
+                </h3>
+
+                <div className="mt-2 text-sm space-y-1">
+                  <p>Status: {vehicle.status ?? "Unknown"}</p>
+
+                  {vehicle.type && <p>Type: {vehicle.type}</p>}
+
+                  {vehicle.speed !== null && vehicle.speed !== undefined && (
+                    <p>Speed: {vehicle.speed} km/h</p>
+                  )}
+
+                  <p>Location:</p>
+
+                  <p>
+                    {vehicle.latitude}
+                    {" , "}
+                    {vehicle.longitude}
+                  </p>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
+
+      {/* ================================ */}
+      {/* MAP STATUS */}
+      {/* ================================ */}
+
+      <div className="absolute bottom-5 left-5 z-[1000]">
+        <div className="flex items-center gap-5 rounded-xl border border-slate-700 bg-[#07111f]/95 backdrop-blur px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
+
+            <span className="text-xs text-slate-300">
+              {locatedVehicles.length} located
+            </span>
           </div>
 
-          <div className="flex items-center gap-3">
-            {/* Vehicles */}
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
 
-            <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-xs">
-              <span className="w-2 h-2 rounded-full bg-cyan-400" />
-              {vehiclesWithLocation.length} located
-            </span>
-
-            {/* Geofences */}
-
-            <span className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs">
-              <span className="w-2 h-2 rounded-full bg-blue-400" />
+            <span className="text-xs text-slate-300">
               {geofences.length} geofences
             </span>
           </div>
         </div>
       </div>
-
-      {/* -------------------------------- */}
-      {/* Map */}
-      {/* -------------------------------- */}
-
-      <div className="h-[500px]">
-        <MapContainer
-          center={DEFAULT_CENTER}
-          zoom={11}
-          scrollWheelZoom={true}
-          className="h-full w-full"
-        >
-          {/* OpenStreetMap */}
-
-          <TileLayer
-            attribution="&copy; OpenStreetMap contributors"
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
-
-          {/* -------------------------------- */}
-          {/* Vehicle markers */}
-          {/* -------------------------------- */}
-
-          {vehiclesWithLocation.map((vehicle) => (
-            <Marker
-              key={vehicle.id}
-              position={[vehicle.latitude!, vehicle.longitude!]}
-              icon={vehicleIcon}
-            >
-              <Popup>
-                <div className="min-w-[190px]">
-                  <h3 className="font-semibold text-base">
-                    {vehicle.vehicleNumber ?? `Vehicle #${vehicle.id}`}
-                  </h3>
-
-                  <div className="mt-3 space-y-2 text-sm">
-                    <p>
-                      <span className="text-gray-500">Status:</span>{" "}
-                      <strong>{vehicle.status ?? "Unknown"}</strong>
-                    </p>
-
-                    <p>
-                      <span className="text-gray-500">Latitude:</span>{" "}
-                      {vehicle.latitude}
-                    </p>
-
-                    <p>
-                      <span className="text-gray-500">Longitude:</span>{" "}
-                      {vehicle.longitude}
-                    </p>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
-          ))}
-
-          {/* -------------------------------- */}
-          {/* Geofence circles */}
-          {/* -------------------------------- */}
-
-          {geofences.map((geofence) => {
-            /*
-             * Backend model:
-             *
-             * centerLatitude
-             * centerLongitude
-             * radiusMeters
-             */
-
-            if (
-              geofence.centerLatitude === null ||
-              geofence.centerLatitude === undefined ||
-              geofence.centerLongitude === null ||
-              geofence.centerLongitude === undefined ||
-              geofence.radiusMeters === null ||
-              geofence.radiusMeters <= 0
-            ) {
-              return null;
-            }
-
-            return (
-              <Circle
-                key={geofence.id}
-                center={[geofence.centerLatitude, geofence.centerLongitude]}
-                radius={geofence.radiusMeters}
-                pathOptions={{
-                  color: geofence.active ? "#06b6d4" : "#64748b",
-
-                  fillColor: geofence.active ? "#06b6d4" : "#64748b",
-
-                  fillOpacity: geofence.active ? 0.15 : 0.08,
-
-                  weight: 2,
-                }}
-              >
-                <Popup>
-                  <div className="min-w-[200px]">
-                    <h3 className="font-semibold text-base">{geofence.name}</h3>
-
-                    <div className="mt-3 space-y-2 text-sm">
-                      <p>
-                        <span className="text-gray-500">Status:</span>{" "}
-                        <strong
-                          className={
-                            geofence.active
-                              ? "text-emerald-500"
-                              : "text-gray-500"
-                          }
-                        >
-                          {geofence.active ? "Active" : "Inactive"}
-                        </strong>
-                      </p>
-
-                      <p>
-                        <span className="text-gray-500">Center:</span>{" "}
-                        {geofence.centerLatitude.toFixed(5)}
-                        {" , "}
-                        {geofence.centerLongitude.toFixed(5)}
-                      </p>
-
-                      <p>
-                        <span className="text-gray-500">Radius:</span>{" "}
-                        {geofence.radiusMeters.toLocaleString()} meters
-                      </p>
-
-                      {geofence.createdAt && (
-                        <p>
-                          <span className="text-gray-500">Created:</span>{" "}
-                          {new Date(geofence.createdAt).toLocaleString()}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </Popup>
-              </Circle>
-            );
-          })}
-        </MapContainer>
-      </div>
-
-      {/* -------------------------------- */}
-      {/* Map information */}
-      {/* -------------------------------- */}
-
-      <div className="px-6 py-4 border-t border-slate-800">
-        {geofenceLoading ? (
-          <p className="text-sm text-slate-500">Loading geofences...</p>
-        ) : geofenceError ? (
-          <p className="text-sm text-red-400">{geofenceError}</p>
-        ) : geofences.length === 0 ? (
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center">
-              📍
-            </div>
-
-            <div>
-              <p className="text-sm text-slate-300">No geofences configured</p>
-
-              <p className="text-xs text-slate-500">
-                Create a geofence to display its boundary on the map.
-              </p>
-            </div>
-          </div>
-        ) : (
-          <p className="text-sm text-slate-400">
-            {geofences.length} geofence
-            {geofences.length !== 1 ? "s" : ""} displayed on the map.
-          </p>
-        )}
-      </div>
-
-      {/* -------------------------------- */}
-      {/* Vehicle location warning */}
-      {/* -------------------------------- */}
-
-      {vehicles.length > 0 && vehiclesWithLocation.length === 0 && (
-        <div className="px-6 py-4 border-t border-amber-500/20 bg-amber-500/5">
-          <p className="text-sm text-amber-400">
-            Vehicles are available, but no latitude or longitude data is
-            currently available.
-          </p>
-        </div>
-      )}
-
-      {/* -------------------------------- */}
-      {/* No vehicles */}
-      {/* -------------------------------- */}
-
-      {vehicles.length === 0 && (
-        <div className="px-6 py-10 border-t border-slate-800 text-center">
-          <div className="text-3xl">🚚</div>
-
-          <h3 className="text-slate-300 font-medium mt-3">
-            No vehicles available
-          </h3>
-
-          <p className="text-sm text-slate-500 mt-1">
-            Vehicles will appear on the map when they are registered.
-          </p>
-        </div>
-      )}
-    </section>
+    </div>
   );
 };
 

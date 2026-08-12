@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   connectWebSocket,
-  disconnectWebSocket,
+  removeWebSocketHandlers,
+  isWebSocketConnected,
 } from "../services/websocketService";
 
 import type { WebSocketMessage } from "../types/websocket";
@@ -12,8 +13,12 @@ interface UseWebSocketOptions {
 }
 
 export const useWebSocket = ({ onMessage }: UseWebSocketOptions = {}) => {
-  const [connected, setConnected] = useState(false);
+  const [connected, setConnected] = useState(isWebSocketConnected());
 
+  /*
+   * Keep the latest onMessage callback
+   * without reconnecting the socket.
+   */
   const onMessageRef = useRef(onMessage);
 
   useEffect(() => {
@@ -21,60 +26,87 @@ export const useWebSocket = ({ onMessage }: UseWebSocketOptions = {}) => {
   }, [onMessage]);
 
   useEffect(() => {
-    let active = true;
+    let mounted = true;
 
-    const socket = connectWebSocket(
-      (message) => {
-        if (!active) {
-          return;
-        }
+    /*
+     * Message handler for this component.
+     */
+    const handleMessage = (message: WebSocketMessage) => {
+      if (!mounted) {
+        return;
+      }
 
-        if (onMessageRef.current) {
-          onMessageRef.current(message);
-        }
-      },
+      onMessageRef.current?.(message);
+    };
 
-      () => {
-        if (!active) {
-          return;
-        }
+    /*
+     * Connection handler.
+     */
+    const handleOpen = () => {
+      if (!mounted) {
+        return;
+      }
 
-        console.log("WebSocket connected");
+      console.log("WebSocket connected");
 
-        setConnected(true);
-      },
+      setConnected(true);
+    };
 
-      () => {
-        if (!active) {
-          return;
-        }
+    /*
+     * Close handler.
+     */
+    const handleClose = () => {
+      if (!mounted) {
+        return;
+      }
 
-        console.log("WebSocket disconnected");
+      console.log("WebSocket disconnected");
 
-        setConnected(false);
-      },
-
-      (error) => {
-        if (!active) {
-          return;
-        }
-
-        console.error("WebSocket connection error:", error);
-
-        setConnected(false);
-      },
-    );
-
-    if (!socket) {
       setConnected(false);
-    }
+    };
 
+    /*
+     * Error handler.
+     */
+    const handleError = (error: unknown) => {
+      if (!mounted) {
+        return;
+      }
+
+      console.error("WebSocket error:", error);
+
+      setConnected(false);
+    };
+
+    /*
+     * Register this component with
+     * the shared STOMP client.
+     */
+    connectWebSocket(handleMessage, handleOpen, handleClose, handleError);
+
+    /*
+     * IMPORTANT:
+     *
+     * We only remove this component's
+     * handlers.
+     *
+     * We do NOT call:
+     *
+     * disconnectWebSocket()
+     *
+     * because Dashboard, Alerts and
+     * FleetMap may all use the same
+     * connection.
+     */
     return () => {
-      active = false;
+      mounted = false;
 
-      setConnected(false);
-
-      disconnectWebSocket();
+      removeWebSocketHandlers(
+        handleMessage,
+        handleOpen,
+        handleClose,
+        handleError,
+      );
     };
   }, []);
 
