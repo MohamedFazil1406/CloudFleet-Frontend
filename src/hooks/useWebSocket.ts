@@ -3,15 +3,17 @@ import {
     connectWebSocket,
     disconnectWebSocket,
 } from "../services/websocketService";
+import type { WebSocketMessage } from "../types/websocket";
 
 interface UseWebSocketOptions {
-    onMessage?: (data: unknown) => void;
+    onMessage?: (message: WebSocketMessage) => void;
 }
 
 export const useWebSocket = ({
                                  onMessage,
                              }: UseWebSocketOptions = {}) => {
     const [connected, setConnected] = useState(false);
+
     const onMessageRef = useRef(onMessage);
 
     useEffect(() => {
@@ -20,8 +22,8 @@ export const useWebSocket = ({
 
     useEffect(() => {
         const socket = connectWebSocket(
-            (data) => {
-                onMessageRef.current?.(data);
+            (message) => {
+                onMessageRef.current?.(message);
             },
             () => {
                 setConnected(true);
@@ -35,7 +37,7 @@ export const useWebSocket = ({
         );
 
         return () => {
-            socket.close();
+            socket?.close();
             disconnectWebSocket();
             setConnected(false);
         };
