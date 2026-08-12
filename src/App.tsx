@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Vehicles from "./pages/Vehicles";
 import Alerts from "./pages/Alerts";
+import Settings from "./pages/Settings";
 
 function App() {
     return (
@@ -29,6 +30,11 @@ function App() {
                     <Route
                         path="/alerts"
                         element={<Alerts />}
+                    />
+
+                    <Route
+                        path="/settings"
+                        element={<Settings />}
                     />
 
                 </Route>
