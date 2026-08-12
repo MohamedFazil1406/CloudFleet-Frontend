@@ -9,6 +9,14 @@ import {
 
 import type { Vehicle, VehicleRequest, VehicleStatus } from "../types/vehicle";
 
+import { useWebSocket } from "../hooks/useWebSocket";
+
+import type { WebSocketMessage } from "../types/websocket";
+
+/* -------------------------------- */
+/* Default form */
+/* -------------------------------- */
+
 const emptyForm: VehicleRequest = {
   vehicleNumber: "",
   type: "TRUCK",
@@ -17,6 +25,10 @@ const emptyForm: VehicleRequest = {
   longitude: 72.8777,
   speed: 0,
 };
+
+/* -------------------------------- */
+/* Component */
+/* -------------------------------- */
 
 const Vehicles = () => {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -28,6 +40,8 @@ const Vehicles = () => {
   const [loading, setLoading] = useState(true);
 
   const [saving, setSaving] = useState(false);
+
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -54,9 +68,43 @@ const Vehicles = () => {
     }
   };
 
+  /* -------------------------------- */
+  /* Initial load */
+  /* -------------------------------- */
+
   useEffect(() => {
     loadVehicles();
   }, []);
+
+  /* -------------------------------- */
+  /* WebSocket */
+  /* -------------------------------- */
+
+  const handleWebSocketMessage = (message: WebSocketMessage) => {
+    switch (message.type) {
+      case "VEHICLE_CREATED":
+
+      case "VEHICLE_DELETED":
+
+      case "VEHICLE_LOCATION_UPDATED":
+
+      case "VEHICLE_STATUS_UPDATED":
+        /*
+         * Refresh the vehicle list
+         * when backend sends a vehicle event.
+         */
+        loadVehicles();
+
+        break;
+
+      default:
+        break;
+    }
+  };
+
+  const { connected } = useWebSocket({
+    onMessage: handleWebSocketMessage,
+  });
 
   /* -------------------------------- */
   /* Form change */
@@ -82,6 +130,8 @@ const Vehicles = () => {
     });
 
     setEditingId(null);
+
+    setError(null);
   };
 
   /* -------------------------------- */
@@ -94,23 +144,35 @@ const Vehicles = () => {
     setError(null);
     setSuccess(null);
 
+    /* Vehicle number */
+
     if (!form.vehicleNumber.trim()) {
       setError("Vehicle number is required.");
+
       return;
     }
+
+    /* Latitude */
 
     if (form.latitude < -90 || form.latitude > 90) {
       setError("Latitude must be between -90 and 90.");
+
       return;
     }
+
+    /* Longitude */
 
     if (form.longitude < -180 || form.longitude > 180) {
       setError("Longitude must be between -180 and 180.");
+
       return;
     }
 
+    /* Speed */
+
     if (form.speed < 0) {
       setError("Speed cannot be negative.");
+
       return;
     }
 
@@ -183,7 +245,10 @@ const Vehicles = () => {
     }
 
     try {
+      setDeletingId(id);
+
       setError(null);
+      setSuccess(null);
 
       await deleteVehicle(id);
 
@@ -198,6 +263,8 @@ const Vehicles = () => {
       console.error("Failed to delete vehicle:", err);
 
       setError("Failed to delete vehicle.");
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -219,28 +286,54 @@ const Vehicles = () => {
     }
   };
 
+  /* -------------------------------- */
+  /* Render */
+  /* -------------------------------- */
+
   return (
     <div className="min-h-[calc(100vh-4rem)] text-white">
       <main className="max-w-7xl mx-auto px-6 py-8">
-        {/* -------------------------------- */}
+        {/* ================================ */}
         {/* Header */}
-        {/* -------------------------------- */}
+        {/* ================================ */}
 
         <div className="mb-8">
-          <p className="text-cyan-400 text-sm font-medium mb-2">
-            FLEET MANAGEMENT
-          </p>
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div>
+              <p className="text-cyan-400 text-sm font-medium mb-2">
+                FLEET MANAGEMENT
+              </p>
 
-          <h1 className="text-3xl md:text-4xl font-bold">Vehicles</h1>
+              <h1 className="text-3xl md:text-4xl font-bold">Vehicles</h1>
 
-          <p className="text-slate-400 mt-2">
-            Register and manage your fleet vehicles.
-          </p>
+              <p className="text-slate-400 mt-2">
+                Register and manage your fleet vehicles.
+              </p>
+            </div>
+
+            {/* WebSocket status */}
+
+            <div
+              className={`inline-flex items-center gap-2 self-start px-4 py-2 rounded-lg border text-sm ${
+                connected
+                  ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  : "bg-red-500/10 border-red-500/20 text-red-400"
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  connected ? "bg-emerald-400" : "bg-red-400"
+                }`}
+              />
+
+              {connected ? "Realtime Online" : "Realtime Offline"}
+            </div>
+          </div>
         </div>
 
-        {/* -------------------------------- */}
+        {/* ================================ */}
         {/* Messages */}
-        {/* -------------------------------- */}
+        {/* ================================ */}
 
         {success && (
           <div className="mb-6 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
@@ -254,9 +347,9 @@ const Vehicles = () => {
           </div>
         )}
 
-        {/* -------------------------------- */}
+        {/* ================================ */}
         {/* Vehicle Form */}
-        {/* -------------------------------- */}
+        {/* ================================ */}
 
         <section className="bg-[#0d1b2a] border border-slate-800 rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between mb-6">
@@ -404,7 +497,7 @@ const Vehicles = () => {
               />
             </div>
 
-            {/* Submit */}
+            {/* Buttons */}
 
             <div className="md:col-span-2 lg:col-span-3 flex justify-end gap-3">
               {editingId !== null && (
@@ -432,9 +525,9 @@ const Vehicles = () => {
           </form>
         </section>
 
-        {/* -------------------------------- */}
+        {/* ================================ */}
         {/* Vehicle List */}
-        {/* -------------------------------- */}
+        {/* ================================ */}
 
         <section className="bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden">
           <div className="px-6 py-5 border-b border-slate-800">
@@ -451,18 +544,23 @@ const Vehicles = () => {
               <button
                 type="button"
                 onClick={loadVehicles}
-                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 transition text-sm"
+                disabled={loading}
+                className="px-4 py-2 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 disabled:opacity-50 transition text-sm"
               >
                 Refresh
               </button>
             </div>
           </div>
 
+          {/* Loading */}
+
           {loading ? (
             <div className="px-6 py-16 text-center text-slate-500">
               Loading vehicles...
             </div>
           ) : vehicles.length === 0 ? (
+            /* Empty */
+
             <div className="px-6 py-16 text-center">
               <div className="text-4xl mb-3">🚚</div>
 
@@ -475,6 +573,8 @@ const Vehicles = () => {
               </p>
             </div>
           ) : (
+            /* Table */
+
             <div className="overflow-x-auto">
               <table className="w-full text-left">
                 <thead className="bg-[#07111f]">
@@ -533,7 +633,9 @@ const Vehicles = () => {
 
                       <td className="px-6 py-4">
                         {vehicle.latitude !== null &&
-                        vehicle.longitude !== null ? (
+                        vehicle.latitude !== undefined &&
+                        vehicle.longitude !== null &&
+                        vehicle.longitude !== undefined ? (
                           <div className="text-sm">
                             <div className="text-slate-300">
                               {vehicle.latitude}
@@ -569,9 +671,12 @@ const Vehicles = () => {
                           <button
                             type="button"
                             onClick={() => handleDelete(vehicle.id)}
-                            className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 text-xs transition"
+                            disabled={deletingId === vehicle.id}
+                            className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 disabled:opacity-50 text-xs transition"
                           >
-                            Delete
+                            {deletingId === vehicle.id
+                              ? "Deleting..."
+                              : "Delete"}
                           </button>
                         </div>
                       </td>
