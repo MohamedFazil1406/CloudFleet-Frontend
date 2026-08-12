@@ -5,6 +5,7 @@ import Dashboard from "./pages/Dashboard";
 import Vehicles from "./pages/Vehicles";
 import Alerts from "./pages/Alerts";
 import Settings from "./pages/Settings";
+import NotFound from "./pages/NotFound";
 
 function App() {
     return (
@@ -35,6 +36,11 @@ function App() {
                     <Route
                         path="/settings"
                         element={<Settings />}
+                    />
+
+                    <Route
+                        path="*"
+                        element={<NotFound />}
                     />
 
                 </Route>
