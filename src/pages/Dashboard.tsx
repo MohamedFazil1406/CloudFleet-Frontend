@@ -2,9 +2,12 @@ import { useEffect, useState } from "react";
 import { getDashboard } from "../services/dashboardApi";
 import type { DashboardResponse } from "../types/dashboard";
 import { useWebSocket } from "../hooks/useWebSocket";
+import ConnectionStatus from "../components/ConnectionStatus";
 
 const Dashboard = () => {
-    const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
+    const [dashboard, setDashboard] =
+        useState<DashboardResponse | null>(null);
+
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -21,6 +24,7 @@ const Dashboard = () => {
                 setError(null);
 
                 const data = await getDashboard();
+
                 setDashboard(data);
             } catch (err) {
                 console.error("Failed to load dashboard:", err);
@@ -37,11 +41,13 @@ const Dashboard = () => {
         return (
             <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
                 <div className="text-center">
+
                     <div className="w-10 h-10 border-4 border-slate-700 border-t-cyan-400 rounded-full animate-spin mx-auto" />
 
                     <p className="text-slate-400 mt-4">
                         Loading CloudFleet...
                     </p>
+
                 </div>
             </div>
         );
@@ -51,6 +57,7 @@ const Dashboard = () => {
         return (
             <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
                 <div className="bg-[#0d1b2a] border border-red-500/20 rounded-2xl p-8 text-center max-w-md">
+
                     <div className="w-12 h-12 mx-auto rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 text-2xl">
                         !
                     </div>
@@ -70,6 +77,7 @@ const Dashboard = () => {
                     >
                         Try Again
                     </button>
+
                 </div>
             </div>
         );
@@ -81,10 +89,12 @@ const Dashboard = () => {
 
     return (
         <div className="min-h-[calc(100vh-4rem)] text-white">
+
             <main className="max-w-7xl mx-auto px-6 py-8">
 
                 {/* Page Header */}
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+
                     <div>
                         <p className="text-cyan-400 text-sm font-medium mb-2">
                             OVERVIEW
@@ -99,24 +109,8 @@ const Dashboard = () => {
                         </p>
                     </div>
 
-                    {/* WebSocket Status */}
-                    <div
-                        className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${
-                            connected
-                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
-                                : "bg-red-500/10 border-red-500/20 text-red-400"
-                        }`}
-                    >
-                        <span
-                            className={`w-2 h-2 rounded-full ${
-                                connected
-                                    ? "bg-emerald-400 animate-pulse"
-                                    : "bg-red-400"
-                            }`}
-                        />
+                    <ConnectionStatus connected={connected} />
 
-                        {connected ? "Live Updates" : "Realtime Offline"}
-                    </div>
                 </div>
 
                 {/* Statistics */}
@@ -156,6 +150,7 @@ const Dashboard = () => {
                 <section className="mt-8 bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl shadow-black/10">
 
                     <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
+
                         <div>
                             <h2 className="text-lg font-semibold">
                                 Vehicles
@@ -169,20 +164,27 @@ const Dashboard = () => {
                         <span className="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 text-sm">
                             {dashboard.totalVehicles} total
                         </span>
+
                     </div>
 
                     {dashboard.vehicles.length === 0 ? (
+
                         <EmptyState
                             icon="🚚"
                             title="No vehicles available"
                             description="Vehicles will appear here once they are registered."
                         />
+
                     ) : (
+
                         <div className="overflow-x-auto">
+
                             <table className="w-full text-left">
 
                                 <thead className="bg-[#0a1725]">
+
                                 <tr className="text-xs uppercase tracking-wider text-slate-500">
+
                                     <th className="px-6 py-4">
                                         ID
                                     </th>
@@ -202,15 +204,20 @@ const Dashboard = () => {
                                     <th className="px-6 py-4">
                                         Longitude
                                     </th>
+
                                 </tr>
+
                                 </thead>
 
                                 <tbody>
+
                                 {dashboard.vehicles.map((vehicle) => (
+
                                     <tr
                                         key={vehicle.id}
                                         className="border-t border-slate-800 hover:bg-slate-800/30 transition"
                                     >
+
                                         <td className="px-6 py-4 text-slate-500">
                                             #{vehicle.id}
                                         </td>
@@ -232,19 +239,26 @@ const Dashboard = () => {
                                         <td className="px-6 py-4 text-slate-400 font-mono text-sm">
                                             {vehicle.longitude ?? "-"}
                                         </td>
+
                                     </tr>
+
                                 ))}
+
                                 </tbody>
 
                             </table>
+
                         </div>
+
                     )}
+
                 </section>
 
                 {/* Alerts */}
                 <section className="mt-6 bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl shadow-black/10">
 
                     <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
+
                         <div>
                             <h2 className="text-lg font-semibold">
                                 Recent Alerts
@@ -258,21 +272,28 @@ const Dashboard = () => {
                         <span className="px-3 py-1 rounded-lg bg-red-500/10 text-red-400 text-sm">
                             {dashboard.totalAlerts} alerts
                         </span>
+
                     </div>
 
                     {dashboard.recentAlerts.length === 0 ? (
+
                         <EmptyState
                             icon="✓"
                             title="No recent alerts"
                             description="Everything looks good. New alerts will appear here."
                         />
+
                     ) : (
+
                         <div>
+
                             {dashboard.recentAlerts.map((alert) => (
+
                                 <div
                                     key={alert.id}
                                     className="px-6 py-5 border-b border-slate-800 last:border-b-0 hover:bg-slate-800/20 transition"
                                 >
+
                                     <div className="flex items-start gap-4">
 
                                         <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center shrink-0">
@@ -280,6 +301,7 @@ const Dashboard = () => {
                                         </div>
 
                                         <div className="flex-1">
+
                                             <p className="font-medium text-slate-200">
                                                 {alert.message ?? "Fleet alert"}
                                             </p>
@@ -301,23 +323,30 @@ const Dashboard = () => {
                                                 )}
 
                                             </div>
+
                                         </div>
 
                                     </div>
+
                                 </div>
+
                             ))}
+
                         </div>
+
                     )}
+
                 </section>
 
             </main>
+
         </div>
     );
 };
 
-/* ---------------------------------- */
+/* -------------------------------- */
 /* Stat Card */
-/* ---------------------------------- */
+/* -------------------------------- */
 
 interface StatCardProps {
     title: string;
@@ -332,6 +361,7 @@ const StatCard = ({
                       icon,
                       accent,
                   }: StatCardProps) => {
+
     const accentStyles = {
         cyan: {
             icon: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
@@ -357,6 +387,7 @@ const StatCard = ({
         <div className="bg-[#0d1b2a] border border-slate-800 rounded-2xl p-6 hover:border-slate-700 transition">
 
             <div className="flex items-center justify-between">
+
                 <p className="text-sm text-slate-400">
                     {title}
                 </p>
@@ -366,6 +397,7 @@ const StatCard = ({
                 >
                     {icon}
                 </div>
+
             </div>
 
             <p className={`text-4xl font-bold mt-5 ${style.number}`}>
@@ -380,15 +412,16 @@ const StatCard = ({
     );
 };
 
-/* ---------------------------------- */
+/* -------------------------------- */
 /* Status Badge */
-/* ---------------------------------- */
+/* -------------------------------- */
 
 interface StatusBadgeProps {
     status?: string;
 }
 
 const StatusBadge = ({ status }: StatusBadgeProps) => {
+
     const normalizedStatus = status?.toLowerCase();
 
     if (normalizedStatus === "active") {
@@ -408,9 +441,9 @@ const StatusBadge = ({ status }: StatusBadgeProps) => {
     );
 };
 
-/* ---------------------------------- */
+/* -------------------------------- */
 /* Empty State */
-/* ---------------------------------- */
+/* -------------------------------- */
 
 interface EmptyStateProps {
     icon: string;
@@ -423,6 +456,7 @@ const EmptyState = ({
                         title,
                         description,
                     }: EmptyStateProps) => {
+
     return (
         <div className="px-6 py-14 text-center">
 
