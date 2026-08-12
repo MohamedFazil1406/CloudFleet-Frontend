@@ -1,8 +1,11 @@
 import { useEffect, useState } from "react";
+
 import { getDashboard } from "../services/dashboardApi";
 import type { DashboardResponse } from "../types/dashboard";
+
 import { useWebSocket } from "../hooks/useWebSocket";
 import ConnectionStatus from "../components/ConnectionStatus";
+import FleetMap from "../components/FleetMap";
 
 const Dashboard = () => {
     const [dashboard, setDashboard] =
@@ -11,12 +14,23 @@ const Dashboard = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
+    /*
+     * WebSocket connection
+     */
     const { connected } = useWebSocket({
-        onMessage: (data) => {
-            console.log("Realtime update:", data);
+        onMessage: (message) => {
+            console.log("Realtime update:", message);
+
+            /*
+             * We will handle vehicle location,
+             * vehicle status and alerts here next.
+             */
         },
     });
 
+    /*
+     * Load dashboard data
+     */
     useEffect(() => {
         const loadDashboard = async () => {
             try {
@@ -27,7 +41,11 @@ const Dashboard = () => {
 
                 setDashboard(data);
             } catch (err) {
-                console.error("Failed to load dashboard:", err);
+                console.error(
+                    "Failed to load dashboard:",
+                    err
+                );
+
                 setError("Failed to load dashboard");
             } finally {
                 setLoading(false);
@@ -37,6 +55,9 @@ const Dashboard = () => {
         loadDashboard();
     }, []);
 
+    /*
+     * Loading state
+     */
     if (loading) {
         return (
             <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -53,9 +74,13 @@ const Dashboard = () => {
         );
     }
 
+    /*
+     * Error state
+     */
     if (error) {
         return (
             <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
+
                 <div className="bg-[#0d1b2a] border border-red-500/20 rounded-2xl p-8 text-center max-w-md">
 
                     <div className="w-12 h-12 mx-auto rounded-xl bg-red-500/10 flex items-center justify-center text-red-400 text-2xl">
@@ -72,17 +97,23 @@ const Dashboard = () => {
 
                     <button
                         type="button"
-                        onClick={() => window.location.reload()}
+                        onClick={() =>
+                            window.location.reload()
+                        }
                         className="mt-6 px-4 py-2 rounded-lg bg-cyan-500 text-slate-950 font-medium hover:bg-cyan-400 transition"
                     >
                         Try Again
                     </button>
 
                 </div>
+
             </div>
         );
     }
 
+    /*
+     * No dashboard data
+     */
     if (!dashboard) {
         return null;
     }
@@ -92,10 +123,14 @@ const Dashboard = () => {
 
             <main className="max-w-7xl mx-auto px-6 py-8">
 
+                {/* ================================= */}
                 {/* Page Header */}
+                {/* ================================= */}
+
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
 
                     <div>
+
                         <p className="text-cyan-400 text-sm font-medium mb-2">
                             OVERVIEW
                         </p>
@@ -107,13 +142,19 @@ const Dashboard = () => {
                         <p className="text-slate-400 mt-2">
                             Monitor vehicles, activity and alerts in real time.
                         </p>
+
                     </div>
 
-                    <ConnectionStatus connected={connected} />
+                    <ConnectionStatus
+                        connected={connected}
+                    />
 
                 </div>
 
+                {/* ================================= */}
                 {/* Statistics */}
+                {/* ================================= */}
+
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
 
                     <StatCard
@@ -146,12 +187,30 @@ const Dashboard = () => {
 
                 </div>
 
+                {/* ================================= */}
+                {/* Fleet Map */}
+                {/* ================================= */}
+
+                <div className="mt-8">
+
+                    <FleetMap
+                        vehicles={dashboard.vehicles}
+                    />
+
+                </div>
+
+                {/* ================================= */}
                 {/* Vehicles */}
+                {/* ================================= */}
+
                 <section className="mt-8 bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl shadow-black/10">
+
+                    {/* Section Header */}
 
                     <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
 
                         <div>
+
                             <h2 className="text-lg font-semibold">
                                 Vehicles
                             </h2>
@@ -159,6 +218,7 @@ const Dashboard = () => {
                             <p className="text-sm text-slate-500 mt-1">
                                 Current fleet status
                             </p>
+
                         </div>
 
                         <span className="px-3 py-1 rounded-lg bg-slate-800 text-slate-300 text-sm">
@@ -166,6 +226,8 @@ const Dashboard = () => {
                         </span>
 
                     </div>
+
+                    {/* Vehicle Content */}
 
                     {dashboard.vehicles.length === 0 ? (
 
@@ -211,38 +273,45 @@ const Dashboard = () => {
 
                                 <tbody>
 
-                                {dashboard.vehicles.map((vehicle) => (
+                                {dashboard.vehicles.map(
+                                    (vehicle) => (
+                                        <tr
+                                            key={vehicle.id}
+                                            className="border-t border-slate-800 hover:bg-slate-800/30 transition"
+                                        >
 
-                                    <tr
-                                        key={vehicle.id}
-                                        className="border-t border-slate-800 hover:bg-slate-800/30 transition"
-                                    >
+                                            <td className="px-6 py-4 text-slate-500">
+                                                #{vehicle.id}
+                                            </td>
 
-                                        <td className="px-6 py-4 text-slate-500">
-                                            #{vehicle.id}
-                                        </td>
+                                            <td className="px-6 py-4 font-medium text-slate-200">
+                                                {vehicle.vehicleNumber ??
+                                                    "-"}
+                                            </td>
 
-                                        <td className="px-6 py-4 font-medium text-slate-200">
-                                            {vehicle.vehicleNumber ?? "-"}
-                                        </td>
+                                            <td className="px-6 py-4">
 
-                                        <td className="px-6 py-4">
-                                            <StatusBadge
-                                                status={vehicle.status}
-                                            />
-                                        </td>
+                                                <StatusBadge
+                                                    status={
+                                                        vehicle.status
+                                                    }
+                                                />
 
-                                        <td className="px-6 py-4 text-slate-400 font-mono text-sm">
-                                            {vehicle.latitude ?? "-"}
-                                        </td>
+                                            </td>
 
-                                        <td className="px-6 py-4 text-slate-400 font-mono text-sm">
-                                            {vehicle.longitude ?? "-"}
-                                        </td>
+                                            <td className="px-6 py-4 text-slate-400 font-mono text-sm">
+                                                {vehicle.latitude ??
+                                                    "-"}
+                                            </td>
 
-                                    </tr>
+                                            <td className="px-6 py-4 text-slate-400 font-mono text-sm">
+                                                {vehicle.longitude ??
+                                                    "-"}
+                                            </td>
 
-                                ))}
+                                        </tr>
+                                    )
+                                )}
 
                                 </tbody>
 
@@ -254,12 +323,18 @@ const Dashboard = () => {
 
                 </section>
 
-                {/* Alerts */}
+                {/* ================================= */}
+                {/* Recent Alerts */}
+                {/* ================================= */}
+
                 <section className="mt-6 bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl shadow-black/10">
+
+                    {/* Alert Header */}
 
                     <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
 
                         <div>
+
                             <h2 className="text-lg font-semibold">
                                 Recent Alerts
                             </h2>
@@ -267,6 +342,7 @@ const Dashboard = () => {
                             <p className="text-sm text-slate-500 mt-1">
                                 Latest fleet notifications
                             </p>
+
                         </div>
 
                         <span className="px-3 py-1 rounded-lg bg-red-500/10 text-red-400 text-sm">
@@ -274,6 +350,8 @@ const Dashboard = () => {
                         </span>
 
                     </div>
+
+                    {/* Alerts Content */}
 
                     {dashboard.recentAlerts.length === 0 ? (
 
@@ -287,40 +365,46 @@ const Dashboard = () => {
 
                         <div>
 
-                            {dashboard.recentAlerts.map((alert) => (
+                            {dashboard.recentAlerts.map(
+                                (alert) => (
 
-                                <div
-                                    key={alert.id}
-                                    className="px-6 py-5 border-b border-slate-800 last:border-b-0 hover:bg-slate-800/20 transition"
-                                >
+                                    <div
+                                        key={alert.id}
+                                        className="px-6 py-5 border-b border-slate-800 last:border-b-0 hover:bg-slate-800/20 transition"
+                                    >
 
-                                    <div className="flex items-start gap-4">
+                                        <div className="flex items-start gap-4">
 
-                                        <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center shrink-0">
-                                            !
-                                        </div>
+                                            <div className="w-10 h-10 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 flex items-center justify-center shrink-0">
+                                                !
+                                            </div>
 
-                                        <div className="flex-1">
+                                            <div className="flex-1">
 
-                                            <p className="font-medium text-slate-200">
-                                                {alert.message ?? "Fleet alert"}
-                                            </p>
+                                                <p className="font-medium text-slate-200">
+                                                    {alert.message ??
+                                                        "Fleet alert"}
+                                                </p>
 
-                                            <div className="flex flex-wrap gap-3 mt-2">
+                                                <div className="flex flex-wrap gap-3 mt-2">
 
-                                                {alert.type && (
-                                                    <span className="text-xs px-2.5 py-1 rounded-md bg-slate-800 text-slate-400">
-                                                        {alert.type}
-                                                    </span>
-                                                )}
+                                                    {alert.type && (
+                                                        <span className="text-xs px-2.5 py-1 rounded-md bg-slate-800 text-slate-400">
+                                                            {
+                                                                alert.type
+                                                            }
+                                                        </span>
+                                                    )}
 
-                                                {alert.createdAt && (
-                                                    <span className="text-xs text-slate-500">
-                                                        {new Date(
-                                                            alert.createdAt
-                                                        ).toLocaleString()}
-                                                    </span>
-                                                )}
+                                                    {alert.createdAt && (
+                                                        <span className="text-xs text-slate-500">
+                                                            {new Date(
+                                                                alert.createdAt
+                                                            ).toLocaleString()}
+                                                        </span>
+                                                    )}
+
+                                                </div>
 
                                             </div>
 
@@ -328,9 +412,8 @@ const Dashboard = () => {
 
                                     </div>
 
-                                </div>
-
-                            ))}
+                                )
+                            )}
 
                         </div>
 
@@ -344,15 +427,19 @@ const Dashboard = () => {
     );
 };
 
-/* -------------------------------- */
+/* ================================= */
 /* Stat Card */
-/* -------------------------------- */
+/* ================================= */
 
 interface StatCardProps {
     title: string;
     value: number;
     icon: string;
-    accent: "cyan" | "green" | "amber" | "red";
+    accent:
+        | "cyan"
+        | "green"
+        | "amber"
+        | "red";
 }
 
 const StatCard = ({
@@ -363,22 +450,31 @@ const StatCard = ({
                   }: StatCardProps) => {
 
     const accentStyles = {
+
         cyan: {
-            icon: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+            icon:
+                "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
             number: "text-cyan-400",
         },
+
         green: {
-            icon: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+            icon:
+                "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
             number: "text-emerald-400",
         },
+
         amber: {
-            icon: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+            icon:
+                "bg-amber-500/10 text-amber-400 border-amber-500/20",
             number: "text-amber-400",
         },
+
         red: {
-            icon: "bg-red-500/10 text-red-400 border-red-500/20",
+            icon:
+                "bg-red-500/10 text-red-400 border-red-500/20",
             number: "text-red-400",
         },
+
     };
 
     const style = accentStyles[accent];
@@ -400,7 +496,9 @@ const StatCard = ({
 
             </div>
 
-            <p className={`text-4xl font-bold mt-5 ${style.number}`}>
+            <p
+                className={`text-4xl font-bold mt-5 ${style.number}`}
+            >
                 {value}
             </p>
 
@@ -412,38 +510,47 @@ const StatCard = ({
     );
 };
 
-/* -------------------------------- */
+/* ================================= */
 /* Status Badge */
-/* -------------------------------- */
+/* ================================= */
 
 interface StatusBadgeProps {
     status?: string;
 }
 
-const StatusBadge = ({ status }: StatusBadgeProps) => {
+const StatusBadge = ({
+                         status,
+                     }: StatusBadgeProps) => {
 
-    const normalizedStatus = status?.toLowerCase();
+    const normalizedStatus =
+        status?.toLowerCase();
 
     if (normalizedStatus === "active") {
         return (
             <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs">
+
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+
                 Active
+
             </span>
         );
     }
 
     return (
         <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-slate-400 text-xs">
+
             <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+
             {status ?? "Unknown"}
+
         </span>
     );
 };
 
-/* -------------------------------- */
+/* ================================= */
 /* Empty State */
-/* -------------------------------- */
+/* ================================= */
 
 interface EmptyStateProps {
     icon: string;
