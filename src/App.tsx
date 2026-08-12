@@ -1,25 +1,21 @@
-import {
-    BrowserRouter,
-    Navigate,
-    Route,
-    Routes,
-} from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
+import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Vehicles from "./pages/Vehicles";
 import Alerts from "./pages/Alerts";
+import Settings from "./pages/Settings";
+import NotFound from "./pages/NotFound";
 
-const App = () => {
+function App() {
     return (
         <BrowserRouter>
-            <div className="min-h-screen bg-[#07111f]">
+            <Routes>
+                <Route element={<Layout />}>
 
-                <Routes>
-
-                    {/* Dashboard */}
                     <Route
                         path="/"
-                        element={<Dashboard />}
+                        element={<Navigate to="/dashboard" replace />}
                     />
 
                     <Route
@@ -27,34 +23,30 @@ const App = () => {
                         element={<Dashboard />}
                     />
 
-                    {/* Vehicles */}
                     <Route
                         path="/vehicles"
                         element={<Vehicles />}
                     />
 
-                    {/* Alerts */}
                     <Route
                         path="/alerts"
                         element={<Alerts />}
                     />
 
-                    {/* Unknown route */}
                     <Route
-                        path="*"
-                        element={
-                            <Navigate
-                                to="/dashboard"
-                                replace
-                            />
-                        }
+                        path="/settings"
+                        element={<Settings />}
                     />
 
-                </Routes>
+                    <Route
+                        path="*"
+                        element={<NotFound />}
+                    />
 
-            </div>
+                </Route>
+            </Routes>
         </BrowserRouter>
     );
-};
+}
 
 export default App;
