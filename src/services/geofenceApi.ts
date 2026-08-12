@@ -1,4 +1,4 @@
-import api from "./api.ts";
+import api from "./api";
 
 export interface Geofence {
   id: number;
@@ -10,7 +10,7 @@ export interface Geofence {
   createdAt?: string;
 }
 
-export interface GeofenceRequest {
+export interface CreateGeofenceRequest {
   name: string;
   centerLatitude: number;
   centerLongitude: number;
@@ -25,24 +25,9 @@ export const getGeofences = async (): Promise<Geofence[]> => {
 };
 
 export const createGeofence = async (
-  data: GeofenceRequest,
+  request: CreateGeofenceRequest,
 ): Promise<Geofence> => {
-  const response = await api.post<Geofence>("/geofences", data);
-
-  return response.data;
-};
-
-export const getGeofence = async (id: number): Promise<Geofence> => {
-  const response = await api.get<Geofence>(`/geofences/${id}`);
-
-  return response.data;
-};
-
-export const updateGeofence = async (
-  id: number,
-  data: GeofenceRequest,
-): Promise<Geofence> => {
-  const response = await api.put<Geofence>(`/geofences/${id}`, data);
+  const response = await api.post<Geofence>("/geofences", request);
 
   return response.data;
 };
