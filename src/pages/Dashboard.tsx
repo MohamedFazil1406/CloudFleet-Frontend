@@ -1,44 +1,67 @@
 import { useEffect, useState } from "react";
 
 import { getDashboard } from "../services/dashboardApi";
+
+import { getGeofences } from "../services/geofenceApi";
+
 import type { DashboardResponse } from "../types/dashboard";
 
+import type { Geofence } from "../types/geofence";
+
+import type { Vehicle, VehicleStatus } from "../types/vehicle";
+
 import { useWebSocket } from "../hooks/useWebSocket";
+
 import ConnectionStatus from "../components/ConnectionStatus";
+
 import FleetMap from "../components/FleetMap";
 
 const Dashboard = () => {
   const [dashboard, setDashboard] = useState<DashboardResponse | null>(null);
 
+  const [geofences, setGeofences] = useState<Geofence[]>([]);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState<string | null>(null);
 
-  /*
-   * WebSocket connection
-   */
+  /* ================================= */
+  /* WebSocket                         */
+  /* ================================= */
+
   const { connected } = useWebSocket({
     onMessage: (message) => {
       console.log("Realtime update:", message);
 
       /*
-       * We will handle vehicle location,
-       * vehicle status and alerts here next.
+       * Dashboard data can be refreshed
+       * when a vehicle or alert changes.
+       *
+       * We intentionally don't reload for
+       * every message here to avoid unnecessary
+       * API requests.
        */
     },
   });
 
-  /*
-   * Load dashboard data
-   */
+  /* ================================= */
+  /* Load Dashboard + Geofences        */
+  /* ================================= */
+
   useEffect(() => {
-    const loadDashboard = async () => {
+    const loadData = async () => {
       try {
         setLoading(true);
         setError(null);
 
-        const data = await getDashboard();
+        const [dashboardData, geofenceData] = await Promise.all([
+          getDashboard(),
+          getGeofences(),
+        ]);
 
-        setDashboard(data);
+        setDashboard(dashboardData);
+
+        setGeofences(Array.isArray(geofenceData) ? geofenceData : []);
       } catch (err) {
         console.error("Failed to load dashboard:", err);
 
@@ -48,12 +71,13 @@ const Dashboard = () => {
       }
     };
 
-    loadDashboard();
+    loadData();
   }, []);
 
-  /*
-   * Loading state
-   */
+  /* ================================= */
+  /* Loading                           */
+  /* ================================= */
+
   if (loading) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center">
@@ -66,9 +90,10 @@ const Dashboard = () => {
     );
   }
 
-  /*
-   * Error state
-   */
+  /* ================================= */
+  /* Error                             */
+  /* ================================= */
+
   if (error) {
     return (
       <div className="min-h-[calc(100vh-4rem)] flex items-center justify-center px-6">
@@ -95,18 +120,46 @@ const Dashboard = () => {
     );
   }
 
-  /*
-   * No dashboard data
-   */
+  /* ================================= */
+  /* No Dashboard                      */
+  /* ================================= */
+
   if (!dashboard) {
     return null;
   }
+
+  /*
+   * Convert dashboard Vehicle objects
+   * into the Vehicle type expected by FleetMap.
+   *
+   * Your dashboard vehicle type doesn't
+   * contain type/speed, so we provide safe
+   * defaults.
+   */
+
+  const mapVehicles: Vehicle[] = (dashboard.vehicles ?? []).map((vehicle) => ({
+    id: vehicle.id,
+
+    vehicleNumber: vehicle.vehicleNumber ?? `Vehicle ${vehicle.id}`,
+
+    type: "UNKNOWN",
+
+    status: (vehicle.status ?? "INACTIVE") as VehicleStatus,
+
+    latitude: vehicle.latitude ?? null,
+
+    longitude: vehicle.longitude ?? null,
+
+    speed: 0,
+
+    lastUpdated: undefined,
+  }));
 
   return (
     <div className="min-h-[calc(100vh-4rem)] text-white">
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* ================================= */}
-        {/* Page Header */}
+        {/* Page Header                         */}
         {/* ================================= */}
 
         <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
@@ -126,7 +179,7 @@ const Dashboard = () => {
         </div>
 
         {/* ================================= */}
-        {/* Statistics */}
+        {/* Statistics                         */}
         {/* ================================= */}
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -160,20 +213,39 @@ const Dashboard = () => {
         </div>
 
         {/* ================================= */}
-        {/* Fleet Map */}
+        {/* Fleet Map                          */}
         {/* ================================= */}
 
         <div className="mt-8">
-          <FleetMap vehicles={dashboard.vehicles} />
+          <div className="bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Live Fleet Map</h2>
+
+                  <p className="text-sm text-slate-500 mt-1">
+                    Drag a vehicle marker to update its location.
+                  </p>
+                </div>
+
+                <span className="px-3 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 text-sm">
+                  {geofences.length} geofence
+                  {geofences.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="h-125">
+              <FleetMap vehicles={mapVehicles} geofences={geofences} />
+            </div>
+          </div>
         </div>
 
         {/* ================================= */}
-        {/* Vehicles */}
+        {/* Vehicles                           */}
         {/* ================================= */}
 
         <section className="mt-8 bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl shadow-black/10">
-          {/* Section Header */}
-
           <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">Vehicles</h2>
@@ -188,9 +260,7 @@ const Dashboard = () => {
             </span>
           </div>
 
-          {/* Vehicle Content */}
-
-          {dashboard.vehicles.length === 0 ? (
+          {(dashboard.vehicles ?? []).length === 0 ? (
             <EmptyState
               icon="🚚"
               title="No vehicles available"
@@ -214,7 +284,7 @@ const Dashboard = () => {
                 </thead>
 
                 <tbody>
-                  {dashboard.vehicles.map((vehicle) => (
+                  {(dashboard.vehicles ?? []).map((vehicle) => (
                     <tr
                       key={vehicle.id}
                       className="border-t border-slate-800 hover:bg-slate-800/30 transition"
@@ -247,12 +317,10 @@ const Dashboard = () => {
         </section>
 
         {/* ================================= */}
-        {/* Recent Alerts */}
+        {/* Recent Alerts                      */}
         {/* ================================= */}
 
         <section className="mt-6 bg-[#0d1b2a] border border-slate-800 rounded-2xl overflow-hidden shadow-xl shadow-black/10">
-          {/* Alert Header */}
-
           <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold">Recent Alerts</h2>
@@ -267,9 +335,7 @@ const Dashboard = () => {
             </span>
           </div>
 
-          {/* Alerts Content */}
-
-          {dashboard.recentAlerts.length === 0 ? (
+          {(dashboard.recentAlerts ?? []).length === 0 ? (
             <EmptyState
               icon="✓"
               title="No recent alerts"
@@ -277,7 +343,7 @@ const Dashboard = () => {
             />
           ) : (
             <div>
-              {dashboard.recentAlerts.map((alert) => (
+              {(dashboard.recentAlerts ?? []).map((alert) => (
                 <div
                   key={alert.id}
                   className="px-6 py-5 border-b border-slate-800 last:border-b-0 hover:bg-slate-800/20 transition"
@@ -318,7 +384,7 @@ const Dashboard = () => {
 };
 
 /* ================================= */
-/* Stat Card */
+/* Stat Card                         */
 /* ================================= */
 
 interface StatCardProps {
@@ -373,7 +439,7 @@ const StatCard = ({ title, value, icon, accent }: StatCardProps) => {
 };
 
 /* ================================= */
-/* Status Badge */
+/* Status Badge                      */
 /* ================================= */
 
 interface StatusBadgeProps {
@@ -402,7 +468,7 @@ const StatusBadge = ({ status }: StatusBadgeProps) => {
 };
 
 /* ================================= */
-/* Empty State */
+/* Empty State                       */
 /* ================================= */
 
 interface EmptyStateProps {

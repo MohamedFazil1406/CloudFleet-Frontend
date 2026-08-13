@@ -1,296 +1,149 @@
-import { useEffect, useState } from "react";
-
-import { MapContainer, TileLayer, Marker, Popup, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Circle, Marker, Popup } from "react-leaflet";
 
 import L from "leaflet";
+import { useState } from "react";
 
-import { getGeofences } from "../services/geofenceApi";
+import type { Vehicle } from "../types/vehicle";
+import type { Geofence } from "../types/geofence";
 
-import type { Geofence } from "../services/geofenceApi";
-
-import { useWebSocket } from "../hooks/useWebSocket";
-
-import type { WebSocketMessage } from "../types/websocket";
-
-import "leaflet/dist/leaflet.css";
-
-/* -------------------------------- */
-/* Leaflet marker fix */
-/* -------------------------------- */
-
-delete (
-  L.Icon.Default.prototype as L.Icon.Default & {
-    _getIconUrl?: string;
-  }
-)._getIconUrl;
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
-/* -------------------------------- */
-/* Vehicle type used by FleetMap */
-/* -------------------------------- */
-
-/*
- * Dashboard vehicles do not currently contain
- * all fields from the full Vehicle interface.
- *
- * Therefore FleetMap only requires the fields
- * that it actually uses.
- */
-interface FleetMapVehicle {
-  id: number;
-
-  vehicleNumber?: string;
-
-  status?: string;
-
-  latitude?: number | null;
-
-  longitude?: number | null;
-
-  type?: string;
-
-  speed?: number | null;
-}
-
-/* -------------------------------- */
-/* Props */
-/* -------------------------------- */
+import { updateVehicleLocation } from "../services/vehicleLocationApi";
 
 interface FleetMapProps {
-  vehicles: FleetMapVehicle[];
+  vehicles?: Vehicle[];
+  geofences?: Geofence[];
 }
 
-/* -------------------------------- */
-/* Component */
-/* -------------------------------- */
+const FleetMap = ({ vehicles = [], geofences = [] }: FleetMapProps) => {
+  const [movingVehicleId, setMovingVehicleId] = useState<number | null>(null);
 
-const FleetMap = ({ vehicles }: FleetMapProps) => {
-  const [geofences, setGeofences] = useState<Geofence[]>([]);
-
-  const [loading, setLoading] = useState(true);
-
-  const [error, setError] = useState<string | null>(null);
-
-  /* -------------------------------- */
-  /* Load geofences */
-  /* -------------------------------- */
-
-  const loadGeofences = async () => {
+  const handleVehicleMove = async (
+    vehicle: Vehicle,
+    latitude: number,
+    longitude: number,
+  ) => {
     try {
-      setError(null);
+      setMovingVehicleId(vehicle.id);
 
-      const data = await getGeofences();
+      await updateVehicleLocation(
+        vehicle,
+        latitude,
+        longitude,
+        vehicle.speed ?? 0,
+      );
 
-      setGeofences(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load geofences:", err);
-
-      setError("Failed to load geofences.");
+      console.log("Vehicle location updated:", {
+        vehicleId: vehicle.id,
+        latitude,
+        longitude,
+      });
+    } catch (error) {
+      console.error("Failed to update vehicle location:", error);
     } finally {
-      setLoading(false);
+      setMovingVehicleId(null);
     }
   };
-
-  useEffect(() => {
-    loadGeofences();
-  }, []);
-
-  /* -------------------------------- */
-  /* WebSocket */
-  /* -------------------------------- */
-
-  const handleWebSocketMessage = (message: WebSocketMessage) => {
-    if (message.type === "VEHICLE_LOCATION_UPDATED") {
-      console.log("Vehicle location updated:", message.data);
-    }
-
-    if (message.type === "VEHICLE_CREATED") {
-      console.log("Vehicle created:", message.data);
-    }
-
-    if (message.type === "VEHICLE_DELETED") {
-      console.log("Vehicle deleted:", message.data);
-    }
-  };
-
-  useWebSocket({
-    onMessage: handleWebSocketMessage,
-  });
-
-  /* -------------------------------- */
-  /* Vehicles with valid coordinates */
-  /* -------------------------------- */
-
-  const locatedVehicles = vehicles.filter(
-    (vehicle) =>
-      vehicle.latitude !== null &&
-      vehicle.latitude !== undefined &&
-      vehicle.longitude !== null &&
-      vehicle.longitude !== undefined,
-  );
-
-  /* -------------------------------- */
-  /* Loading */
-  /* -------------------------------- */
-
-  if (loading) {
-    return (
-      <div className="w-full min-h-[500px] rounded-2xl bg-[#0d1b2a] border border-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-9 h-9 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin mx-auto" />
-
-          <p className="text-slate-400 mt-4">Loading fleet map...</p>
-        </div>
-      </div>
-    );
-  }
-
-  /* -------------------------------- */
-  /* Map */
-  /* -------------------------------- */
 
   return (
-    <div className="relative w-full h-full min-h-[500px] rounded-2xl overflow-hidden border border-slate-800">
-      {/* Error */}
+    <MapContainer
+      center={[19.076, 72.8777]}
+      zoom={12}
+      style={{
+        width: "100%",
+        height: "100%",
+        minHeight: "500px",
+      }}
+    >
+      <TileLayer
+        attribution="&copy; OpenStreetMap contributors"
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
 
-      {error && (
-        <div className="absolute top-4 left-4 right-4 z-[1000] rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-          {error}
-        </div>
-      )}
+      {/* ============================== */}
+      {/* GEOFENCES */}
+      {/* ============================== */}
 
-      <MapContainer
-        center={[19.076, 72.8777]}
-        zoom={11}
-        scrollWheelZoom={true}
-        className="w-full h-full min-h-[500px]"
-      >
-        <TileLayer
-          attribution="&copy; OpenStreetMap contributors"
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      {geofences.map((geofence) => (
+        <Circle
+          key={geofence.id}
+          center={[geofence.centerLatitude, geofence.centerLongitude]}
+          radius={geofence.radiusMeters}
+          pathOptions={{
+            color: "#06b6d4",
+            fillOpacity: 0.12,
+          }}
         />
+      ))}
 
-        {/* ================================ */}
-        {/* GEOFENCES */}
-        {/* ================================ */}
+      {/* ============================== */}
+      {/* VEHICLES */}
+      {/* ============================== */}
 
-        {geofences.map((geofence) => {
-          if (
-            geofence.centerLatitude === undefined ||
-            geofence.centerLongitude === undefined ||
-            geofence.radiusMeters === undefined
-          ) {
-            return null;
-          }
+      {vehicles.map((vehicle) => {
+        if (vehicle.latitude == null || vehicle.longitude == null) {
+          return null;
+        }
 
-          return (
-            <Circle
-              key={geofence.id}
-              center={[geofence.centerLatitude, geofence.centerLongitude]}
-              radius={geofence.radiusMeters}
-              pathOptions={{
-                color: geofence.active ? "#06b6d4" : "#64748b",
+        const position: [number, number] = [
+          vehicle.latitude,
+          vehicle.longitude,
+        ];
 
-                fillColor: geofence.active ? "#06b6d4" : "#64748b",
-
-                fillOpacity: 0.12,
-
-                weight: 2,
-              }}
-            >
-              <Popup>
-                <div className="text-slate-900 min-w-[180px]">
-                  <h3 className="font-semibold text-base">{geofence.name}</h3>
-
-                  <div className="mt-2 text-sm space-y-1">
-                    <p>Radius: {geofence.radiusMeters} m</p>
-
-                    <p>Status: {geofence.active ? "Active" : "Inactive"}</p>
-
-                    <p>
-                      Center:
-                      <br />
-                      {geofence.centerLatitude}
-                      {" , "}
-                      {geofence.centerLongitude}
-                    </p>
-                  </div>
-                </div>
-              </Popup>
-            </Circle>
-          );
-        })}
-
-        {/* ================================ */}
-        {/* VEHICLES */}
-        {/* ================================ */}
-
-        {locatedVehicles.map((vehicle) => (
+        return (
           <Marker
             key={vehicle.id}
-            position={[vehicle.latitude!, vehicle.longitude!]}
+            position={position}
+            draggable={true}
+            eventHandlers={{
+              dragstart: () => {
+                setMovingVehicleId(vehicle.id);
+              },
+
+              dragend: async (event) => {
+                const marker = event.target as L.Marker;
+
+                const newPosition = marker.getLatLng();
+
+                await handleVehicleMove(
+                  vehicle,
+                  newPosition.lat,
+                  newPosition.lng,
+                );
+              },
+            }}
           >
             <Popup>
-              <div className="text-slate-900 min-w-[180px]">
+              <div className="min-w-47.5">
                 <h3 className="font-semibold text-base">
-                  {vehicle.vehicleNumber ?? `Vehicle #${vehicle.id}`}
+                  {vehicle.vehicleNumber}
                 </h3>
 
-                <div className="mt-2 text-sm space-y-1">
-                  <p>Status: {vehicle.status ?? "Unknown"}</p>
+                <div className="mt-2 space-y-1 text-sm">
+                  <p>Type: {vehicle.type}</p>
 
-                  {vehicle.type && <p>Type: {vehicle.type}</p>}
+                  <p>Status: {vehicle.status}</p>
 
-                  {vehicle.speed !== null && vehicle.speed !== undefined && (
-                    <p>Speed: {vehicle.speed} km/h</p>
-                  )}
+                  <p>Speed: {vehicle.speed ?? 0} km/h</p>
 
-                  <p>Location:</p>
+                  <p>Latitude: {vehicle.latitude}</p>
 
-                  <p>
-                    {vehicle.latitude}
-                    {" , "}
-                    {vehicle.longitude}
-                  </p>
+                  <p>Longitude: {vehicle.longitude}</p>
                 </div>
+
+                {movingVehicleId === vehicle.id && (
+                  <p className="mt-3 text-cyan-400 text-xs">
+                    Updating location...
+                  </p>
+                )}
+
+                <p className="mt-3 text-xs text-slate-500">
+                  Drag the marker to move this vehicle.
+                </p>
               </div>
             </Popup>
           </Marker>
-        ))}
-      </MapContainer>
-
-      {/* ================================ */}
-      {/* MAP STATUS */}
-      {/* ================================ */}
-
-      <div className="absolute bottom-5 left-5 z-[1000]">
-        <div className="flex items-center gap-5 rounded-xl border border-slate-700 bg-[#07111f]/95 backdrop-blur px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-
-            <span className="text-xs text-slate-300">
-              {locatedVehicles.length} located
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-cyan-400" />
-
-            <span className="text-xs text-slate-300">
-              {geofences.length} geofences
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+        );
+      })}
+    </MapContainer>
   );
 };
 
