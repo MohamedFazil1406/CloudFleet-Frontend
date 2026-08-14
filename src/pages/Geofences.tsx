@@ -8,6 +8,10 @@ import {
   TileLayer,
   useMapEvents,
 } from "react-leaflet";
+import L from "leaflet";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
 
 import {
   createGeofence,
@@ -18,6 +22,17 @@ import {
 import type { Geofence } from "../services/geofenceApi";
 
 import "leaflet/dist/leaflet.css";
+
+const defaultMarkerIcon = L.icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
 const DEFAULT_CENTER: [number, number] = [19.076, 72.8777];
 
@@ -489,7 +504,7 @@ const Geofences = () => {
                 {/* Selected center */}
 
                 {center && (
-                  <Marker position={center}>
+                  <Marker icon={defaultMarkerIcon} position={center}>
                     <Popup>
                       <strong>Geofence Center</strong>
 
