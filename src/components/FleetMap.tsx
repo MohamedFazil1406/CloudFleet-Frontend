@@ -1,6 +1,11 @@
 import { MapContainer, TileLayer, Circle, Marker, Popup } from "react-leaflet";
 
 import L from "leaflet";
+
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
 import { useState } from "react";
 
 import type { Vehicle } from "../types/vehicle";
@@ -12,6 +17,17 @@ interface FleetMapProps {
   vehicles?: Vehicle[];
   geofences?: Geofence[];
 }
+
+const vehicleIcon = L.icon({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
 
 const FleetMap = ({ vehicles = [], geofences = [] }: FleetMapProps) => {
   const [movingVehicleId, setMovingVehicleId] = useState<number | null>(null);
@@ -92,6 +108,7 @@ const FleetMap = ({ vehicles = [], geofences = [] }: FleetMapProps) => {
           <Marker
             key={vehicle.id}
             position={position}
+            icon={vehicleIcon}
             draggable={true}
             eventHandlers={{
               dragstart: () => {
