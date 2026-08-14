@@ -518,7 +518,7 @@ const Geofences = () => {
                 {/* Radius point */}
 
                 {boundary && (
-                  <Marker position={boundary}>
+                  <Marker icon={defaultMarkerIcon} position={boundary}>
                     <Popup>Radius point</Popup>
                   </Marker>
                 )}
