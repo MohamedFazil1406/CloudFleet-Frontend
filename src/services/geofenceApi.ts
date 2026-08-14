@@ -2,6 +2,9 @@ import api from "./api";
 
 import type { Geofence } from "../types/geofence";
 
+// Re-export Geofence so components can import it from this service.
+export type { Geofence } from "../types/geofence";
+
 export const getGeofences = async (): Promise<Geofence[]> => {
   const response = await api.get<Geofence[]>("/geofences");
 
