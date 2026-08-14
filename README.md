@@ -24,6 +24,24 @@ CloudFleet is a **real-time fleet management and vehicle tracking frontend** bui
 - **Axios**
 - **WebSocket**
 
+## ⚠️ Current Limitation
+
+> **Live vehicle tracking is not currently implemented.**
+
+The current version of CloudFleet does **not track the real-time GPS location of physical vehicles**. Vehicle positions are currently updated manually through the dashboard for testing geofencing and entry/exit alerts.
+
+### 🚧 Planned Update
+
+Live vehicle tracking will be added in a future update, including:
+
+- Real-time GPS location tracking
+- Automatic vehicle location updates
+- Continuous map updates
+- Real-time movement tracking
+- Improved live alerts
+
+This feature is currently **under development**.
+
 ## Environment Variables
 
 Create a `.env` file:
